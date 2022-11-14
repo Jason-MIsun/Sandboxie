@@ -383,7 +383,7 @@ NTSTATUS KphValidateCertificate();
 
 _FX NTSTATUS MyValidateCertificate(void)
 {
-    return status;
+    return STATUS_SUCCESS;
 }
 
 
