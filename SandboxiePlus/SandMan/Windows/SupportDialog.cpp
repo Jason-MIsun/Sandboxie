@@ -32,71 +32,7 @@ bool CSupportDialog::IsBusinessUse()
 
 bool CSupportDialog::CheckSupport(bool bOnRun)
 {
-	if (g_CertInfo.valid)
-		return false;
-
-	QDateTime InstallDate = GetSbieInstallationDate();
-	bool bOnARM64 = (g_FeatureFlags & CSbieAPI::eSbieFeatureARM64) != 0;
-
-	bool NoGo = false;
-
-	QDateTime CurretnDate = QDateTime::currentDateTimeUtc();
-	int Days = InstallDate.daysTo(CurretnDate);
-	if (Days < 40)
-		return false;
-
-	if (IsBusinessUse())
-	{
-		if (g_CertInfo.expired)
-			Days = -g_CertInfo.expirers_in_sec / (24 * 3600);
-
-		NoGo = (Days > 60);
-
-		if (!NoGo && m_ReminderShown && !bOnRun)
-			return false;
-	}
-	else if (!bOnARM64 && !theAPI->GetGlobalSettings()->GetBool("AlwaysShowReminder"))
-	{
-		// Note: the old sandboxie showed a message after 30 days every 12 hours for 5 seconds
-		
-		int Interval;
-        if (Days > 730) Interval = 5 * 24;
-        else if (Days > 365) Interval = 10 * 24;
-        else if (Days > 180) Interval = 20 * 24;
-        else Interval = 30 * 24;
-
-		//USHORT ReminderRevision = 0;
-		//theAPI->GetSecureParam("ReminderRevision", &ReminderRevision, sizeof(ReminderRevision));
-
-		USHORT ReminderShedule[2*11];
-		if (theAPI->GetSecureParam("ReminderShedule", &ReminderShedule, sizeof(ReminderShedule))) {
-			for (USHORT* Cur = ReminderShedule; (ULONG_PTR)Cur < (ULONG_PTR)ReminderShedule + sizeof(ReminderShedule) && *Cur != 0; Cur += 2) {
-				if (Days > Cur[0]) {
-					if (Cur[1] < Interval) Interval = Cur[1];
-					break;
-				}
-			}
-		}
-
-		time_t LastReminder = 0;
-		theAPI->GetSecureParam("LastReminder", &LastReminder, sizeof(LastReminder));
-		if (LastReminder > 0 && LastReminder < CurretnDate.toSecsSinceEpoch()) {
-			if (CurretnDate.toSecsSinceEpoch() - LastReminder < (time_t(Interval) * 3600))
-				return false;
-		}
-
-		//ULONG ReminderConfig = 0;
-		//theAPI->GetSecureParam("ReminderConfig", &ReminderConfig, sizeof(ReminderConfig));
-
-		if ((rand() % 5) != 0)
-			return false;
-	}
-	m_ReminderShown = true;
-
-	if (!ShowDialog(NoGo))
-		PostQuitMessage(0);
-
-	return true;
+	return false;
 }
 
 bool CSupportDialog::ShowDialog(bool NoGo, int Wait)
