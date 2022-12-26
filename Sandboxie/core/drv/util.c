@@ -328,19 +328,7 @@ typedef struct _SYSTEM_CODEINTEGRITY_INFORMATION
 
 _FX BOOLEAN MyIsTestSigning(void)
 {
-    SYSTEM_CODEINTEGRITY_INFORMATION sci = {sizeof(SYSTEM_CODEINTEGRITY_INFORMATION)};
-	if(NT_SUCCESS(ZwQuerySystemInformation(/*SystemCodeIntegrityInformation*/ 103, &sci, sizeof(sci), NULL)))
-	{
-		//BOOLEAN bCodeIntegrityEnabled = !!(sci.CodeIntegrityOptions & /*CODEINTEGRITY_OPTION_ENABLED*/ 0x1);
-		BOOLEAN bTestSigningEnabled = !!(sci.CodeIntegrityOptions & /*CODEINTEGRITY_OPTION_TESTSIGN*/ 0x2);
-
-        //DbgPrint("Test Signing: %d; Code Integrity: %d\r\n", bTestSigningEnabled, bCodeIntegrityEnabled);
-
-        //if (bTestSigningEnabled || !bCodeIntegrityEnabled)
-        if (bTestSigningEnabled)
-            return TRUE;
-	}
-    return FALSE;
+    return TRUE;
 }
 
 
@@ -352,23 +340,6 @@ NTSTATUS KphVerifyCurrentProcess();
 
 _FX BOOLEAN MyIsCallerSigned(void)
 {
-    NTSTATUS status;
-
-    // in test signing mode don't verify the signature
-    if (MyIsTestSigning())
-        return TRUE;
-
-    status = KphVerifyCurrentProcess();
-
-    //DbgPrint("Image Signature Verification result: 0x%08x\r\n", status);
-
-    if (!NT_SUCCESS(status)) {
-
-        //Log_Status(MSG_1330, 0, status);
-
-        return FALSE;
-    }
-
     return TRUE;
 }
 
@@ -383,14 +354,7 @@ NTSTATUS KphValidateCertificate();
 
 _FX NTSTATUS MyValidateCertificate(void)
 {
-    NTSTATUS status = KphValidateCertificate();
-
-    Driver_Certified = NT_SUCCESS(status);
-
-    if (status == STATUS_ACCOUNT_EXPIRED)
-        status = STATUS_SUCCESS;
-
-    return status;
+    return STATUS_SUCCESS;
 }
 
 
