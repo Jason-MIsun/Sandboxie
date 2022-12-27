@@ -336,8 +336,6 @@ _FX BOOLEAN MyIsTestSigning(void)
 // MyIsCallerSigned
 //---------------------------------------------------------------------------
 
-NTSTATUS KphVerifyCurrentProcess();
-
 _FX BOOLEAN MyIsCallerSigned(void)
 {
     return TRUE;
@@ -348,9 +346,7 @@ _FX BOOLEAN MyIsCallerSigned(void)
 // MyValidateCertificate
 //---------------------------------------------------------------------------
 
-BOOLEAN Driver_Certified = FALSE;
-
-NTSTATUS KphValidateCertificate();
+BOOLEAN Driver_Certified = TRUE;
 
 _FX NTSTATUS MyValidateCertificate(void)
 {
