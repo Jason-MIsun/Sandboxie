@@ -4,16 +4,38 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
-## [1.6.3a / 5.61.3] - 2022-12-??
+## [1.6.5 / 5.61.5] - 2023-??-??
+
+### Added 
+- added user mode syscall tracing, now system calls can be logged also in compartment type boxes as well as all Win32k syscalls
+
+### Changed
+- reworked trace log model, now it can load over 10e6 entries in under 1 second
+- removed ApiLog support is now hidden from the trace UI when the apropriate dll's are missing 
+
+### Fixed
+- fixed issue with Microsoft Edge in a security enhanced box [#2571](https://github.com/sandboxie-plus/Sandboxie/issues/2571)
+- opened OpenIpcPath=\\{BEC19D6F-D7B2-41A8-860C-8787BB964F2D} on ARM64 systems
+- fixed incompatibility with Windows 11 21H2 ARM64 [#2431](https://github.com/sandboxie-plus/Sandboxie/issues/2431)
+
+
+
+
+## [1.6.4 / 5.61.4] - 2022-12-31
 
 ### Added
 - added option to disable sandbox clean-up on startup [#2553](https://github.com/sandboxie-plus/Sandboxie/issues/2553)
+- added contribution guidelines in the Help menu for both Plus and Classic UIs [#2551](https://github.com/sandboxie-plus/Sandboxie/pull/2551)
 
 ### Fixed
 - fixed issue with auto delete sandbox on SandMan startup [#2555](https://github.com/sandboxie-plus/Sandboxie/issues/2555)
 - fixed issue with Windows 11 context menu when SandMan was not already running [#2284](https://github.com/sandboxie-plus/Sandboxie/issues/2284)
 - fixed issue with the display about cmbDefault [#2560](https://github.com/sandboxie-plus/Sandboxie/pull/2560) (okrc)
-- fixed issuw with templates.ini loading on first start [#2574](https://github.com/sandboxie-plus/Sandboxie/issues/2574)
+- fixed issue with color inaccuracy [#2570](https://github.com/sandboxie-plus/Sandboxie/pull/2570) (okrc)
+- fixed issue with Templates.ini loading on first start [#2574](https://github.com/sandboxie-plus/Sandboxie/issues/2574)
+- fixed Cyberpunk 2077 not being able to load mods when sandboxed
+- fixed performance issue in games
+- fixed FFS hooking issue observed in Windows 11 ARM64 Build 22621.819
 
 
 

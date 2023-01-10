@@ -253,6 +253,8 @@ private:
 	void				LoadState(bool bFull = true);
 	void				StoreState();
 
+	void				UpdateState();
+
 	void				EnumBoxLinks(QMap<QString, QMap<QString, QString> >& BoxLinks, const QString& Prefix, const QString& Folder, bool bWithSubDirs = true);
 	void				CleanupShortcutPath(const QString& Path);
 	void				DeleteShortcut(const QString& Path);
@@ -338,12 +340,14 @@ private:
 
 	QMenu*				m_pMenuHelp;
 	QAction*			m_pSupport;
+	QAction*			m_pContribution;
 	QAction*			m_pForum;
 	QAction*			m_pManual;
 	QAction*			m_pUpdate;
 	QAction*			m_pAbout;
 	QAction*			m_pAboutQt;
 
+	QLabel*				m_pTraceInfo;
 	QLabel*				m_pDisabledForce;
 	QLabel*				m_pDisabledRecovery;
 	QLabel*				m_pDisabledMessages;
@@ -359,7 +363,7 @@ private:
 	int					m_iTrayPos;
 	//QMenu*				m_pBoxMenu;
 	bool				m_bIconEmpty;
-	bool				m_bIconDisabled;
+	int					m_iIconDisabled;
 	bool				m_bIconBusy;
 	int					m_iDeletingContent;
 
