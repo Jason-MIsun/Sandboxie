@@ -4,14 +4,30 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
-## [1.6.5 / 5.61.5] - 2023-??-??
 
-### Added 
+## [1.6.6 / 5.61.6] - 2023-01-?
+
+
+## Changed
+- improved trace log retrival greately improving performance
+
+### Fixed
+- fixed potential BSOD issue in the driver
+- fixed crash in in trace log [#2599](https://github.com/sandboxie-plus/Sandboxie/issues/2599)
+- fixed tray issue [2600](https://github.com/sandboxie-plus/Sandboxie/pull/2600) (okrc)
+- fidex issues with shortcuts [#2601](https://github.com/sandboxie-plus/Sandboxie/pull/2601) (okrc)
+
+
+
+
+## [1.6.5 / 5.61.5] - 2023-01-10
+
+### Added
 - added user mode syscall tracing, now system calls can be logged also in compartment type boxes as well as all Win32k syscalls
 
 ### Changed
 - reworked trace log model, now it can load over 10e6 entries in under 1 second
-- removed ApiLog support is now hidden from the trace UI when the apropriate dll's are missing 
+- ApiLog support is now hidden from the trace UI when the appropriate DLLs are missing
 
 ### Fixed
 - fixed issue with Microsoft Edge in a security enhanced box [#2571](https://github.com/sandboxie-plus/Sandboxie/issues/2571)

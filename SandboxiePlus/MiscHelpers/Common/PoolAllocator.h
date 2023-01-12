@@ -39,6 +39,7 @@ public:
     void dispose() {
         for (auto page : pages)
             ::free(page);
+        pages.clear();
         stack = nullptr;
     }
 
