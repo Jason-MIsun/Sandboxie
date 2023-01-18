@@ -295,7 +295,7 @@ SB_STATUS CSbieAPI::Connect(bool takeOver, bool withQueue)
 	m->lastMessageNum = 0;
 	//m->lastRecordNum = 0;
 
-	// Note: this lib is not using all functions hence it can be compatible with multiple driver ABI revisions
+	// Note: this lib is not using all functions, hence it can be compatible with multiple driver ABI revisions
 	//QStringList CompatVersions = QStringList () << "5.55.0";
 	//QString CurVersion = GetVersion();
 	//if (!CompatVersions.contains(CurVersion))
@@ -349,7 +349,7 @@ SB_STATUS CSbieAPI::Disconnect()
 		m->SbieApiHandle = INVALID_HANDLE_VALUE;
 	}
 
-	// ensure the client thread is enteirly terminated to avoid the service keeping the reference
+	// ensure that the client thread is entirely terminated to avoid the service keeping the reference
 	// see SbieSvc PortDisconnectByCreateTime
 	QThread::msleep(250); 
 	if (m->PortHandle) {
@@ -480,7 +480,7 @@ SB_STATUS CSbieAPI__CallServer(SSbieAPI* m, MSG_HEADER* req, MSG_HEADER** prpl)
 		if (ResData[3] != CurSeqNumber)
 			return SB_ERR(SB_ServiceFail, QVariantList() << QString("mismatched reply")); // 2203
 
-		// clear highest byte of the size filed
+		// clear highest byte of the size field
 		ResData[3] = 0;
 		BuffLen = ((MSG_HEADER*)ResData)->length;
 	}
@@ -2372,7 +2372,7 @@ bool CSbieAPI::GetLog()
 
 	/*
 	QString Message = CSbieAPI__FormatSbieMsg(m, MsgCode, str1, str2);
-	if (ProcessId != 4) // if its not from the driver add the pid
+	if (ProcessId != 4) // if it is not from the driver, add the pid
 		Message += tr(", by process: %1").arg(ProcessId);
 
 	emit LogMessage(Message, MessageId);
@@ -2516,7 +2516,7 @@ bool CSbieAPI::GetMonitor()
 	if (!NT_SUCCESS(m->IoControl(parms)))
 		return false; // error or no more entries
 
-	if (type == 0) // versions prioir to 5.45.0 return success and type 0 when there are no more entries
+	if (type == 0) // versions prior to 5.45.0 return success and type 0 when there are no more entries
 		return false;
 
 	//if (RecordNum != m->lastRecordNum + 1 && !m->clearingBuffers)
@@ -2533,14 +2533,14 @@ bool CSbieAPI::GetMonitor()
 		pos += (len + 1) * sizeof(WCHAR);
 	}
 
-	CTraceEntryPtr LogEntry = CTraceEntryPtr(new CTraceEntry(pid, tid, type, LogData));
+	CTraceEntryPtr LogEntry = CTraceEntryPtr(new CTraceEntry(0, pid, tid, type, LogData));
 
 	QMutexLocker Lock(&m_TraceMutex);
 	m_TraceCache.append(LogEntry);
 
 	return true;
 
-#else // bulk retrival starting with build 1.6.6
+#else // bulk retrieval starting with build 1.6.6
 
 	if (m->traceBuffer == NULL) {
 		m->traceBufferLen = 256 * PAGE_SIZE;
@@ -2570,6 +2570,10 @@ bool CSbieAPI::GetMonitor()
 		ULONG uSize = *(ULONG*)ptr;
 		ptr += sizeof(ULONG);
 
+		LONGLONG uTimestamp = *(LONGLONG*)ptr;
+		ptr += sizeof(LONGLONG);
+		uSize -= sizeof(LONGLONG);
+
 		ULONG uType = *(ULONG*)ptr;
 		ptr += sizeof(ULONG);
 		uSize -= sizeof(ULONG);
@@ -2590,7 +2594,7 @@ bool CSbieAPI::GetMonitor()
 		}
 		ptr += uSize;
 
-		CTraceEntryPtr LogEntry = CTraceEntryPtr(new CTraceEntry(uPid, uTid, uType, LogData));
+		CTraceEntryPtr LogEntry = CTraceEntryPtr(new CTraceEntry(FILETIME2ms(uTimestamp), uPid, uTid, uType, LogData));
 
 		QMutexLocker Lock(&m_TraceMutex);
 		m_TraceCache.append(LogEntry);

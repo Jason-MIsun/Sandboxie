@@ -111,7 +111,7 @@ class MISCHELPERS_EXPORT CPanelWidgetEx : public CPanelWidget<QTreeWidgetEx>
 public:
 	CPanelWidgetEx(QWidget *parent = 0) : CPanelWidget<QTreeWidgetEx>(parent) 
 	{
-		m_pFinder = new CFinder(NULL, this, false);
+		m_pFinder = new CFinder(NULL, this, CFinder::eRegExp | CFinder::eCaseSens);
 		m_pMainLayout->addWidget(m_pFinder);
 		QObject::connect(m_pFinder, SIGNAL(SetFilter(const QString&, int, int)), this, SLOT(SetFilter(const QString&, int, int)));
 	}
@@ -119,14 +119,12 @@ public:
 	static void ApplyFilter(QTreeWidgetEx* pTree, QTreeWidgetItem* pItem, const QRegularExpression& Exp/*, bool bHighLight = false, int Col = -1*/)
 	{
 		for (int j = 0; j < pTree->columnCount(); j++) {
-			pItem->setForeground(j, (m_DarkMode && !Exp.isValid() && pItem->text(j).contains(Exp)) ? Qt::yellow : pTree->palette().color(QPalette::WindowText));
-			pItem->setBackground(j, (!m_DarkMode && !Exp.isValid() && pItem->text(j).contains(Exp)) ? Qt::yellow : pTree->palette().color(QPalette::Base));
+			pItem->setForeground(j, (m_DarkMode && Exp.isValid() && pItem->text(j).contains(Exp)) ? Qt::yellow : pTree->palette().color(QPalette::WindowText));
+			pItem->setBackground(j, (!m_DarkMode && Exp.isValid() && pItem->text(j).contains(Exp)) ? Qt::yellow : pTree->palette().color(QPalette::Base));
 		}
 
 		for (int i = 0; i < pItem->childCount(); i++)
-		{
 			ApplyFilter(pTree, pItem->child(i), Exp/*, bHighLight, Col*/);
-		}
 	}
 
 	static void ApplyFilter(QTreeWidgetEx* pTree, const QRegularExpression& Exp/*, bool bHighLight = false, int Col = -1*/)
@@ -136,10 +134,10 @@ public:
 	}
 
 private slots:
-	void SetFilter(const QString& Exp, int iFormat, int Col = -1) // -1 = any
+	void SetFilter(const QString& Exp, int iOptions, int Col = -1) // -1 = any
 	{
-		QString ExpStr = ((iFormat & CFinder::eRegExp) == 0) ? Exp : (".*" + QRegularExpression::escape(Exp) + ".*");
-		QRegularExpression RegExp(ExpStr, (iFormat & CFinder::eCaseSens) != 0 ? QRegularExpression::NoPatternOption : QRegularExpression::CaseInsensitiveOption);
+		QString ExpStr = ((iOptions & CFinder::eRegExp) == 0) ? Exp : (".*" + QRegularExpression::escape(Exp) + ".*");
+		QRegularExpression RegExp(ExpStr, (iOptions & CFinder::eCaseSens) != 0 ? QRegularExpression::NoPatternOption : QRegularExpression::CaseInsensitiveOption);
 		ApplyFilter(m_pTreeList, RegExp);
 	}
 
@@ -164,8 +162,6 @@ public:
 		m_pSortProxy->setDynamicSortFilter(true);
 
 		m_pTreeList->setModel(m_pSortProxy);
-		((CSortFilterProxyModel*)m_pSortProxy)->setView(m_pTreeList);
-		
 
 		m_pTreeList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 #ifdef WIN32
