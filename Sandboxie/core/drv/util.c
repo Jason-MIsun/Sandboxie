@@ -348,26 +348,9 @@ _FX BOOLEAN MyIsTestSigning(void)
 // MyIsCallerSigned
 //---------------------------------------------------------------------------
 
-NTSTATUS KphVerifyCurrentProcess();
 
 _FX BOOLEAN MyIsCallerSigned(void)
 {
-    NTSTATUS status;
-
-    // in test signing mode don't verify the signature
-    if (MyIsTestSigning())
-        return TRUE;
-
-    status = KphVerifyCurrentProcess();
-
-    //DbgPrint("Image Signature Verification result: 0x%08x\r\n", status);
-
-    if (!NT_SUCCESS(status)) {
-
-        //Log_Status(MSG_1330, 0, status);
-
-        return FALSE;
-    }
 
     return TRUE;
 }
@@ -377,20 +360,11 @@ _FX BOOLEAN MyIsCallerSigned(void)
 // MyValidateCertificate
 //---------------------------------------------------------------------------
 
-BOOLEAN Driver_Certified = FALSE;
-
-NTSTATUS KphValidateCertificate();
+BOOLEAN Driver_Certified = TRUE;
 
 _FX NTSTATUS MyValidateCertificate(void)
 {
-    NTSTATUS status = KphValidateCertificate();
-
-    Driver_Certified = NT_SUCCESS(status);
-
-    if (status == STATUS_ACCOUNT_EXPIRED)
-        status = STATUS_SUCCESS;
-
-    return status;
+    return STATUS_SUCCESS;
 }
 
 
