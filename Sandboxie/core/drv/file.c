@@ -601,6 +601,7 @@ _FX BOOLEAN File_InitPaths(PROCESS *proc,
         L"\\Device\\Afd\\AsyncConnectHlp",
         L"\\Device\\Afd\\AsyncSelectHlp",
         L"\\Device\\Afd\\ROUTER",
+        L"\\Device\\Afd\\Mio",
         L"\\Device\\WS2IFSL",
         L"\\Device\\WS2IFSL\\NifsPvd",
         L"\\Device\\WS2IFSL\\NifsSct",
@@ -671,7 +672,6 @@ _FX BOOLEAN File_InitPaths(PROCESS *proc,
         L"\\Device\\DfsClient",
         L"\\Device\\KsecDD",
         L"\\Device\\MountPointManager",
-        L"\\Device\\Mup\\*",
         L"\\Device\\Ndis",
         L"\\Device\\PcwDrv",
         L"\\Device\\SrpDevice", // Smart App Control
@@ -838,6 +838,10 @@ _FX BOOLEAN File_InitPaths(PROCESS *proc,
             for (i = 0; approved_devices[i] && ok; ++i) {
                 ok = Process_AddPath(
                     proc, normal_file_paths, NULL, FALSE, approved_devices[i], FALSE);
+            }
+            if (ok && !proc->file_block_network_files) {
+                ok = Process_AddPath(
+                    proc, normal_file_paths, NULL, FALSE, File_Mup, TRUE);
             }
         }
 
@@ -1007,8 +1011,15 @@ _FX BOOLEAN File_BlockInternetAccess2(
 
 _FX BOOLEAN File_InitProcess(PROCESS *proc)
 {
+    BOOLEAN ok;
 
-    BOOLEAN ok = File_InitPaths(proc,
+    proc->file_block_network_files = Conf_Get_Boolean(proc->box->name, L"BlockNetworkFiles", 0, FALSE);
+    
+    proc->file_warn_direct_access = Conf_Get_Boolean(proc->box->name, L"NotifyDirectDiskAccess", 0, FALSE);
+
+    proc->file_open_devapi_cmapi = Conf_Get_Boolean(proc->box->name, L"OpenDevCMApi", 0, FALSE);
+
+    ok = File_InitPaths(proc,
 #ifdef USE_MATCH_PATH_EX
                                         &proc->normal_file_paths,
 #endif
@@ -1021,12 +1032,6 @@ _FX BOOLEAN File_InitProcess(PROCESS *proc)
 
     if (ok)
         ok = WFP_UpdateProcess(proc);
-
-    proc->file_block_network_files = Conf_Get_Boolean(proc->box->name, L"BlockNetworkFiles", 0, FALSE);
-    
-    proc->file_warn_direct_access = Conf_Get_Boolean(proc->box->name, L"NotifyDirectDiskAccess", 0, FALSE);
-
-    proc->file_open_devapi_cmapi = Conf_Get_Boolean(proc->box->name, L"OpenDevCMApi", 0, FALSE);
 
     if (ok && proc->image_path && (! proc->image_sbie)) {
 
