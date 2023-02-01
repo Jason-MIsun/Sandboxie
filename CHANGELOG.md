@@ -6,7 +6,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
-## [1.7.1 / 5.62.1] - 2023-?-?
+## [1.7.1 / 5.62.1] - 2023-01-30
 
 ### Added
 - added option to create a new sandbox to run from the box picker dialog
@@ -15,19 +15,25 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 -- use OpenClsid={00000000-0000-0000-0000-000000000000} to open all
 - the SandMan UI now indicates if a sandboxed process has a Elevated(Admin) or System token
 - DropAdminRights can now be configured per process [#2293](https://github.com/sandboxie-plus/Sandboxie/issues/2293)
+- added self removing boxes [#1936](https://github.com/sandboxie-plus/Sandboxie/issues/1936)
+- added Ctrl+F search filter to the box picker dialog, this allows quickly to find a particular box
+- added menu options to edit the templates.ini and the sansboxie-plus.ini
 
 ### Changed
 - refactored network blocking code in driver
+- box options now show the expanded paths where apropriate
+- made new box option layout the default (can be changed back in appearance settings)
 
 ### Fixed
 - fixed BlockNetworkFiles=y not working together with RestrictDevices=y [#2629](https://github.com/sandboxie-plus/Sandboxie/issues/2629)
 - fixed SandMan crash issue introduced in 1.7.0
-- fixed trace log case-sensitive filter
+- fixed trace log filter is not case-insensitive
 - fixed performance issues with Delete V2
 - fixed issue with NtQueryDirectoryFile data alignment [#2443](https://github.com/sandboxie-plus/Sandboxie/issues/2443)
 - fixed issue with Microsoft Edge 111 dev build [#2631](https://github.com/sandboxie-plus/Sandboxie/issues/2631)
 - fixed issue with mio sockets [#2617](https://github.com/sandboxie-plus/Sandboxie/issues/2617)
 - fixed issue with run menu entries created from the options/settings window [#2610](https://github.com/sandboxie-plus/Sandboxie/issues/2610)
+- fixed issues with start menu when using snapshots [#2589](https://github.com/sandboxie-plus/Sandboxie/issues/2589)
 
 
 

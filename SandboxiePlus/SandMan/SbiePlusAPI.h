@@ -38,6 +38,9 @@ private slots:
 	virtual void			OnStartFinished();
 	virtual void			SbieIniSetSection(const QString& Section, const QString& Value) { SbieIniSet(Section, "", Value); }
 
+signals:
+	void					BoxCleaned(CSandBoxPlus* pBoxEx);
+
 protected:
 	friend class CSandBoxPlus;
 
@@ -78,8 +81,10 @@ public:
 	virtual void			OpenBox();
 	virtual void			CloseBox();
 
-	virtual SB_PROGRESS		CleanBox();
-	virtual SB_PROGRESS		SelectSnapshot(const QString& ID);
+	virtual SB_PROGRESS		CleanBox()							{ BeginModifyingBox(); SB_PROGRESS Status = CSandBox::CleanBox(); ConnectEndSlot(Status); return Status; }
+	virtual SB_PROGRESS		TakeSnapshot(const QString& Name)	{ BeginModifyingBox(); SB_PROGRESS Status = CSandBox::TakeSnapshot(Name); ConnectEndSlot(Status); return Status; }
+	virtual SB_PROGRESS		RemoveSnapshot(const QString& ID)	{ BeginModifyingBox(); SB_PROGRESS Status = CSandBox::RemoveSnapshot(ID); ConnectEndSlot(Status); return Status; }
+	virtual SB_PROGRESS		SelectSnapshot(const QString& ID)	{ BeginModifyingBox(); SB_PROGRESS Status = CSandBox::SelectSnapshot(ID); ConnectEndSlot(Status); return Status; }
 
 	virtual QString			GetStatusStr() const;
 
@@ -159,7 +164,7 @@ public:
 	QList<SLink>			GetStartMenu() const { return m_StartMenu.values(); }
 
 signals:
-	void					AboutToBeCleaned();
+	void					AboutToBeModified();
 	void					StartMenuChanged();
 
 public slots:
@@ -168,8 +173,21 @@ public slots:
 	void					OnAsyncProgress(int Progress);
 	void					OnCancelAsync();
 
+protected slots:
+	virtual	void			BeginModifyingBox();
+	virtual	void			EndModifyingBox();
+
 protected:
 	friend class CSbiePlusAPI;
+
+	struct SFoundLink {
+		QString Snapshot;
+		QString LinkPath;
+		QString RealPath;
+		QString SubPath;
+	};
+
+	virtual void			ConnectEndSlot(const SB_PROGRESS& Status);
 
 	virtual bool			CheckUnsecureConfig() const;
 	EBoxTypes				GetTypeImpl() const;
@@ -182,6 +200,8 @@ protected:
 
 	static void				ExportBoxAsync(const CSbieProgressPtr& pProgress, const QString& ExportPath, const QString& RootPath, const QString& Section);
 	static void				ImportBoxAsync(const CSbieProgressPtr& pProgress, const QString& ImportPath, const QString& RootPath, const QString& BoxName);
+
+	bool					IsFileDeleted(const QString& RealPath, const QString& Shapshot, const QStringList& SnapshotList, const QMap<QString, QList<QString>>& DeletedPaths);
 
 	QList<QSharedPointer<CBoxJob>> m_JobQueue;
 

@@ -10,6 +10,7 @@
 #include "../QSbieAPI/SbieUtils.h"
 #include "../MiscHelpers/Archive/Archive.h"
 #include <QtConcurrent>
+#include "Helpers/WinHelper.h"
 
 CSbiePlusAPI::CSbiePlusAPI(QObject* parent) : CSbieAPI(parent)
 {
@@ -380,74 +381,31 @@ void CSandBoxPlus::UpdateDetails()
 	m_BoxColor = QColor("#" + BorderCfg[0].mid(5, 2) + BorderCfg[0].mid(3, 2) + BorderCfg[0].mid(1, 2)).rgb();
 }
 
-QVariantMap ResolveShortcut(const QString& LinkPath)
-{
-	QVariantMap Link;
-
-    HRESULT hRes = E_FAIL;
-    IShellLink* psl = NULL;
-
-    // buffer that receives the null-terminated string
-    // for the drive and path
-    TCHAR szPath[MAX_PATH];
-    // structure that receives the information about the shortcut
-    WIN32_FIND_DATA wfd;
-
-    // Get a pointer to the IShellLink interface
-    hRes = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLink, (void**)&psl);
-
-    if (SUCCEEDED(hRes))
-    {
-        // Get a pointer to the IPersistFile interface
-        IPersistFile*  ppf     = NULL;
-        psl->QueryInterface(IID_IPersistFile, (void **) &ppf);
-
-        // Open the shortcut file and initialize it from its contents
-        hRes = ppf->Load(LinkPath.toStdWString().c_str(), STGM_READ);
-        if (SUCCEEDED(hRes))
-        {
-            hRes = psl->Resolve(NULL, SLR_NO_UI | SLR_NOSEARCH | SLR_NOUPDATE);
-            if (SUCCEEDED(hRes))
-            {
-                // Get the path to the shortcut target
-                hRes = psl->GetPath(szPath, MAX_PATH, &wfd, SLGP_RAWPATH);
-                if (FAILED(hRes))
-                    return Link;
-
-				Link["Path"] = QString::fromWCharArray(szPath);
-
-				int IconIndex;
-                hRes = psl->GetIconLocation(szPath, MAX_PATH, &IconIndex);
-                if (FAILED(hRes))
-                    return Link;
-
-				Link["IconPath"] = QString::fromWCharArray(szPath);
-				Link["IconIndex"] = IconIndex;
-
-                // Get the description of the target
-                hRes = psl->GetDescription(szPath, MAX_PATH);
-                if (FAILED(hRes))
-                    return Link;
-
-                Link["Info"] = QString::fromWCharArray(szPath);
-
-            }
-        }
-    }
-
-    return Link;
-}
-
 bool CSandBoxPlus::IsBoxexPath(const QString& Path)
 {
 	return Path.left(m_FilePath.length()).compare(m_FilePath, Qt::CaseInsensitive) == 0;
 }
 
+bool CSandBoxPlus::IsFileDeleted(const QString& RealPath, const QString& Shapshot, const QStringList& SnapshotList, const QMap<QString, QList<QString>>& DeletedPaths)
+{
+	int NextIndex = SnapshotList.indexOf(Shapshot) - 1;
+	if (NextIndex < 0) return false; // no newer snapshot
+
+	QString NewerSnapshot = SnapshotList.at(NextIndex);
+
+	foreach(const QString &DeletedPath, DeletedPaths[NewerSnapshot]) {
+		int len = DeletedPath.length();
+		if (RealPath.length() >= len && RealPath.left(len).compare(DeletedPath, Qt::CaseInsensitive) == 0) {
+			if (RealPath.length() == len || RealPath[len] == '\\')
+				return true;
+		}
+	}
+
+	return IsFileDeleted(RealPath, NewerSnapshot, SnapshotList, DeletedPaths);
+}
+
 void CSandBoxPlus::ScanStartMenu()
 {
-	bool bAdded = false;
-	auto OldStartMenu = ListToSet(m_StartMenu.keys());
-
 	QStringList SnapshotList;
 	SnapshotList.append("");
 
@@ -457,6 +415,36 @@ void CSandBoxPlus::ScanStartMenu()
 		SnapshotList.append(CurSnapshot);
 		CurSnapshot = Snapshots[CurSnapshot].Parent;
 	}
+
+	QMap<QString, QList<QString>> DeletedPaths;
+	foreach (const QString& Snapshot, SnapshotList)
+	{
+		QString PathsFile = GetFileRoot();
+		if (!Snapshot.isEmpty())
+			PathsFile += "\\snapshot-" + Snapshot;
+		PathsFile += "\\FilePaths.dat";
+
+		QFile File(PathsFile);
+		if (File.open(QFile::ReadOnly)) {
+			QByteArray Data = File.readAll();
+			File.close();
+			QString Text = QString::fromWCharArray((const wchar_t*)Data.constData(), Data.size()/sizeof(wchar_t));
+
+			QList<QString> Deleted;
+
+			QTextStream in(&Text);
+			while (!in.atEnd()) {
+				QStringList Line = in.readLine().split("|");
+				if (Line.length() < 2 || Line[1] != "1")
+					continue; // not a delete entry
+				Deleted.append(theAPI->Nt2DosPath(Line[0]));
+			}
+
+			DeletedPaths[Snapshot] = Deleted;
+		}
+	}
+
+	QMap<QString, SFoundLink> FoundLinks;
 
 	int csidls[] = { CSIDL_DESKTOPDIRECTORY, CSIDL_COMMON_DESKTOPDIRECTORY, CSIDL_STARTMENU, CSIDL_COMMON_STARTMENU };
 	for (int i = 0; i < ARRAYSIZE(csidls); i++)
@@ -471,40 +459,63 @@ void CSandBoxPlus::ScanStartMenu()
 			QStringList	Files = ListDir(BoxPath, QStringList() << "*.lnk" << "*.url" << "*.pif", i >= 2); // no subdir scan for desktop as people like to put junk there
 			foreach(QString File, Files)
 			{
-				QString Path = (i >= 2 ? "" : "Desktop/") + File;
+				QString RealPath = theAPI->GetRealPath(this, BoxPath + "\\" + QString(File).replace("/", "\\"));
 
-				if (!OldStartMenu.remove(Path))
-					bAdded = true;
-
-				StrPair PathName = Split2(Path, "/", true);
-				StrPair NameExt = Split2(PathName.second, ".", true);
-				if (NameExt.second.toLower() != "lnk")
-					continue; // todo url
-
-				QString LinkPath = BoxPath + "\\" + File.replace("/", "\\");
-				QVariantMap Link = ResolveShortcut(LinkPath);
-				if (!Link.contains("Path"))
+				// we scan the snapshots newest to oldest
+				if (FoundLinks.contains(RealPath.toLower())) 
+					continue;
+				
+				// check if the shortcut file is marked deleted
+				if (IsFileDeleted(RealPath, Snapshot, SnapshotList, DeletedPaths))
 					continue;
 
-				SLink* pLink = &m_StartMenu[Path];
-				pLink->Folder = PathName.first;
-				pLink->Name = NameExt.first;
-				pLink->Target = Link["Path"].toString();
-				pLink->Icon = Link["IconPath"].toString();
-				pLink->IconIndex = Link["IconIndex"].toInt();
-
-				if (!pLink->Target.isEmpty() && !QFile::exists(pLink->Target) && !IsBoxexPath(pLink->Target))
-					pLink->Target = theAPI->GetBoxedPath(this, pLink->Target, Snapshot);
-				if (!pLink->Icon.isEmpty() && !QFile::exists(pLink->Icon) && !IsBoxexPath(pLink->Icon))
-					pLink->Icon = theAPI->GetBoxedPath(this, pLink->Icon, Snapshot);
+				SFoundLink FoundLink;
+				FoundLink.Snapshot = Snapshot;
+				FoundLink.LinkPath = BoxPath + "\\" + QString(File).replace("/", "\\");
+				FoundLink.RealPath = RealPath;
+				FoundLink.SubPath = (i >= 2 ? "" : "Desktop/") + File;
+				FoundLinks.insert(FoundLink.RealPath.toLower(), FoundLink);
 			}
 		}
+	}
+
+
+	bool bChanged = false;
+	auto OldStartMenu = ListToSet(m_StartMenu.keys());
+
+	foreach (const SFoundLink& FoundLink, FoundLinks) {
+
+		if (!OldStartMenu.remove(FoundLink.SubPath.toLower()))
+			bChanged = true;
+
+		StrPair PathName = Split2(FoundLink.SubPath, "/", true);
+		StrPair NameExt = Split2(PathName.second, ".", true);
+		if (NameExt.second.toLower() != "lnk")
+			continue; // todo url
+
+		QVariantMap Link = ResolveShortcut(FoundLink.LinkPath);
+		if (!Link.contains("Path"))
+			continue;
+
+		SLink* pLink = &m_StartMenu[FoundLink.SubPath.toLower()];
+		pLink->Folder = PathName.first;
+		pLink->Name = NameExt.first;
+		if(!pLink->Target.isEmpty() && pLink->Target != Link["Path"].toString())
+			bChanged = true;
+		pLink->Target = Link["Path"].toString();
+		pLink->Icon = Link["IconPath"].toString();
+		pLink->IconIndex = Link["IconIndex"].toInt();
+
+		if (!pLink->Target.isEmpty() && !QFile::exists(pLink->Target) && !IsBoxexPath(pLink->Target))
+			pLink->Target = theAPI->GetBoxedPath(this, pLink->Target, FoundLink.Snapshot);
+		if (!pLink->Icon.isEmpty() && !QFile::exists(pLink->Icon) && !IsBoxexPath(pLink->Icon))
+			pLink->Icon = theAPI->GetBoxedPath(this, pLink->Icon, FoundLink.Snapshot);
 	}
 
 	foreach(const QString &Path, OldStartMenu)
 		m_StartMenu.remove(Path);
 	
-	if (bAdded || !OldStartMenu.isEmpty())
+	if (bChanged || !OldStartMenu.isEmpty())
 		emit StartMenuChanged();
 }
 
@@ -573,26 +584,32 @@ void CSandBoxPlus::CloseBox()
 		ScanStartMenu();
 }
 
-SB_PROGRESS CSandBoxPlus::CleanBox()
+void CSandBoxPlus::ConnectEndSlot(const SB_PROGRESS& Status)
 {
-	((CSbiePlusAPI*)theAPI)->m_BoxMonitor->RemoveBox(this);
-	
-	emit AboutToBeCleaned();
-
-	SB_PROGRESS Status = CSandBox::CleanBox();
-
-	return Status;
+	CSbieProgressPtr pProgress = Status.GetValue();
+	if (!pProgress.isNull())
+		connect(pProgress.data(), SIGNAL(Finished()), this, SLOT(EndModifyingBox()));
+	else
+		EndModifyingBox();
 }
 
-SB_PROGRESS CSandBoxPlus::SelectSnapshot(const QString& ID)
+void CSandBoxPlus::BeginModifyingBox()
 {
+	//
+	// before altering the box structure or deleting it
+	// we need to ensure that sandman will not hold any open handles on the files/folders inside
+	//
+
 	((CSbiePlusAPI*)theAPI)->m_BoxMonitor->RemoveBox(this);
+	
+	emit AboutToBeModified();
+}
 
-	emit AboutToBeCleaned();
-
-	SB_PROGRESS Status = CSandBox::SelectSnapshot(ID);
-
-	return Status;
+void CSandBoxPlus::EndModifyingBox()
+{
+	UpdateSize();
+	if (theConf->GetBool("Options/ScanStartMenu", true))
+		ScanStartMenu();
 }
 
 bool CSandBoxPlus::CheckUnsecureConfig() const
@@ -957,11 +974,11 @@ void CSandBoxPlus::OnAsyncFinished()
 		theGUI->CheckResults(QList<SB_STATUS>() << Status);
 		return;
 	}
+	else
+		pJob->Finished();
 
 	if (!m_JobQueue.isEmpty())
 		StartNextJob();
-	else
-		UpdateSize();
 }
 
 void CSandBoxPlus::OnAsyncMessage(const QString& Text)

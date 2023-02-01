@@ -2,8 +2,8 @@
 
 #define VERSION_MJR		1
 #define VERSION_MIN 	7
-#define VERSION_REV 	0
-#define VERSION_UPD 	3
+#define VERSION_REV 	1
+#define VERSION_UPD 	1
 
 #ifndef STR
 #define STR2(X) #X
@@ -20,5 +20,5 @@
 
 #define MY_PRODUCT_NAME_STRING  "Sandboxie-Plus"
 #define MY_COMPANY_NAME_STRING  "sandboxie-plus.com"
-#define MY_COPYRIGHT_STRING     "Copyright (C) 2020-2022 by David Xanatos (xanasoft.com)"
+#define MY_COPYRIGHT_STRING     "Copyright (C) 2020-2023 by David Xanatos (xanasoft.com)"
 

@@ -34,6 +34,7 @@
 #include <QVariantAnimation>
 #include <QSessionManager>
 #include "Helpers/FullScreen.h"
+#include "Helpers/WinHelper.h"
 
 CSbiePlusAPI* theAPI = NULL;
 
@@ -170,6 +171,7 @@ CSandMan::CSandMan(QWidget *parent)
 
 	connect(theAPI, SIGNAL(BoxAdded(const CSandBoxPtr&)), this, SLOT(OnBoxAdded(const CSandBoxPtr&)));
 	connect(theAPI, SIGNAL(BoxClosed(const CSandBoxPtr&)), this, SLOT(OnBoxClosed(const CSandBoxPtr&)));
+	connect(theAPI, SIGNAL(BoxCleaned(CSandBoxPlus*)), this, SLOT(OnBoxCleaned(CSandBoxPlus*)));
 
 	QString appTitle = tr("Sandboxie-Plus v%1").arg(GetVersion());
 
@@ -438,16 +440,16 @@ void CSandMan::CreateHelpMenu(bool bAdvanced)
 {
 	m_pMenuHelp = m_pMenuBar->addMenu(tr("&Help"));
 		//m_pMenuHelp->addAction(tr("Support Sandboxie-Plus on Patreon"), this, SLOT(OnHelp()));
-		m_pSupport = m_pMenuHelp->addAction(tr("Support Sandboxie-Plus with Donations"), this, SLOT(OnHelp()));
+		//m_pSupport = m_pMenuHelp->addAction(tr("Support Sandboxie-Plus with Donations"), this, SLOT(OnHelp()));
 		//if (!bAdvanced) {
 		//	m_pMenuHelp->removeAction(m_pSupport);
 		//	m_pMenuBar->addAction(m_pSupport);
 		//}
-		m_pContribution = m_pMenuHelp->addAction(tr("Contribute to Sandboxie-Plus"), this, SLOT(OnHelp()));
+		m_pContribution = m_pMenuHelp->addAction(CSandMan::GetIcon("Support"), tr("Contribute to Sandboxie-Plus"), this, SLOT(OnHelp()));
 		m_pManual = m_pMenuHelp->addAction(tr("Online Documentation"), this, SLOT(OnHelp()));
 		m_pForum = m_pMenuHelp->addAction(tr("Visit Support Forum"), this, SLOT(OnHelp()));
 		m_pMenuHelp->addSeparator();
-		m_pUpdate = m_pMenuHelp->addAction(tr("Check for Updates"), this, SLOT(CheckForUpdates()));
+		m_pUpdate = m_pMenuHelp->addAction(CSandMan::GetIcon("Update"), tr("Check for Updates"), this, SLOT(CheckForUpdates()));
 		m_pMenuHelp->addSeparator();
 		m_pAboutQt = m_pMenuHelp->addAction(tr("About the Qt Framework"), this, SLOT(OnAbout()));
 		m_pAbout = m_pMenuHelp->addAction(CSandMan::GetIcon("IconFull", 2), tr("About Sandboxie-Plus"), this, SLOT(OnAbout()));
@@ -525,7 +527,7 @@ void CSandMan::CreateMenus(bool bAdvanced)
 	}
 
 		m_pMenuView->addSeparator();
-		m_pMenuBrowse = m_pMenuView->addAction(CSandMan::GetIcon("Folder"), tr("Show File Panel"), this, SLOT(OnProcView()));
+		m_pMenuBrowse = m_pMenuView->addAction(CSandMan::GetIcon("Explore"), tr("Show File Panel"), this, SLOT(OnProcView()));
 		m_pMenuBrowse->setCheckable(true);
 		m_pMenuBrowse->setShortcut(QKeySequence("Ctrl+D"));
 		m_pMenuBrowse->setShortcutContext(Qt::WidgetWithChildrenShortcut);
@@ -574,8 +576,16 @@ void CSandMan::CreateMenus(bool bAdvanced)
 		m_pMenuResetGUI->setShortcutContext(Qt::WidgetWithChildrenShortcut);
 		this->addAction(m_pMenuResetGUI);
 		m_pMenuOptions->addSeparator();
-		m_pEditIni = m_pMenuOptions->addAction(CSandMan::GetIcon("Editor"), tr("Edit ini file"), this, SLOT(OnEditIni()));
-		m_pReloadIni = m_pMenuOptions->addAction(CSandMan::GetIcon("ReloadIni"), tr("Reload ini file"), this, SLOT(OnReloadIni()));
+		m_pEditIni = m_pMenuOptions->addAction(CSandMan::GetIcon("Editor"), tr("Edit Sandboxie.ini"), this, SLOT(OnEditIni()));
+		m_pEditIni->setProperty("ini", "sbie");
+		if (bAdvanced) {
+			m_pEditIni2 = m_pMenuOptions->addAction(CSandMan::GetIcon("Editor2"), tr("Edit Templates.ini"), this, SLOT(OnEditIni()));
+			m_pEditIni2->setProperty("ini", "tmpl");
+			m_pEditIni3 = m_pMenuOptions->addAction(CSandMan::GetIcon("Editor4"), tr("Edit Sandboxie-Plus.ini"), this, SLOT(OnEditIni()));
+			m_pEditIni3->setProperty("ini", "plus");
+		} else
+			m_pEditIni2 = m_pEditIni3 = NULL;
+		m_pReloadIni = m_pMenuOptions->addAction(CSandMan::GetIcon("ReloadIni"), tr("Reload configuration"), this, SLOT(OnReloadIni()));
 
 	CreateHelpMenu(bAdvanced);
 
@@ -695,8 +705,10 @@ void CSandMan::CreateOldMenus()
 		m_pMenuOptions->addSeparator();
 		QAction* m_pConfigLock = m_pMenuOptions->addAction(CSandMan::GetIcon("Lock"), tr("Lock Configuration"), this, SLOT(OnSettingsAction()));
 		m_pConfigLock->setData(CSettingsWindow::eConfigLock);
-		m_pEditIni = m_pMenuOptions->addAction(CSandMan::GetIcon("Editor"), tr("Edit ini file"), this, SLOT(OnEditIni()));
-		m_pReloadIni = m_pMenuOptions->addAction(CSandMan::GetIcon("ReloadIni"), tr("Reload ini file"), this, SLOT(OnReloadIni()));
+		m_pEditIni = m_pMenuOptions->addAction(CSandMan::GetIcon("Editor"), tr("Edit Sandboxie.ini"), this, SLOT(OnEditIni()));
+		m_pEditIni->setProperty("ini", "sbie");
+		m_pEditIni2 = m_pEditIni3 = NULL;
+		m_pReloadIni = m_pMenuOptions->addAction(CSandMan::GetIcon("ReloadIni"), tr("Reload configuration"), this, SLOT(OnReloadIni()));
 
 	CreateHelpMenu(false);
 
@@ -744,7 +756,20 @@ void CSandMan::CreateToolBar()
 	m_pToolBar->addSeparator();
 	m_pToolBar->addAction(m_pMenuBrowse);
 	m_pToolBar->addSeparator();
+	
+	/*m_pEditButton = new QToolButton();
+	m_pEditButton->setIcon(m_pEditIni->icon());
+	m_pEditButton->setText(m_pEditIni->text());
+	m_pEditButton->setPopupMode(QToolButton::MenuButtonPopup);
+	QMenu* pEditBtnMenu = new QMenu(m_pEditButton);
+	pEditBtnMenu->addAction(m_pEditIni2->icon(), m_pEditIni2->text(), this, SLOT(OnEditIni2()));
+	pEditBtnMenu->addAction(m_pEditIni3->icon(), m_pEditIni3->text(), this, SLOT(OnEditIni3()));
+	m_pEditButton->setMenu(pEditBtnMenu);
+	//QObject::connect(m_pEditButton, SIGNAL(triggered(QAction*)), , SLOT());
+	QObject::connect(m_pEditButton, SIGNAL(clicked(bool)), this, SLOT(OnEditIni()));
+	m_pToolBar->addWidget(m_pEditButton);*/
 	m_pToolBar->addAction(m_pEditIni);
+
 	m_pToolBar->addSeparator();
 	m_pToolBar->addAction(m_pEnableMonitoring);
 	//m_pToolBar->addSeparator();
@@ -1069,7 +1094,7 @@ void CSandMan::closeEvent(QCloseEvent *e)
 
 		if (PortableStop == 1) {
 			SB_RESULT(void*) Status = StopSbie(true);
-			// don't care for Status we quit here anyways
+			// don't care for Status we quit here anyway
 		}
 	}
 
@@ -1522,7 +1547,7 @@ SB_STATUS CSandMan::DeleteBoxContent(const CSandBoxPtr& pBox, EDelMode Mode, boo
 		Ret = Status;
 		if (Status.GetStatus() == OP_ASYNC) {
 			Ret = AddAsyncOp(Status.GetValue(), true, tr("Auto Deleting %1 Content").arg(pBox->GetName()));
-			pBox.objectCast<CSandBoxPlus>()->UpdateSize();
+			OnBoxCleaned(qobject_cast<CSandBoxPlus*>(pBox.data()));
 		}
 	}
 
@@ -1536,7 +1561,7 @@ void CSandMan::OnBoxAdded(const CSandBoxPtr& pBox)
 	connect(pBox.data(), SIGNAL(StartMenuChanged()), this, SLOT(OnStartMenuChanged()));
 }
 
-void CSandMan::EnumBoxLinks(QMap<QString, QMap<QString,QString> > &BoxLinks, const QString& Prefix, const QString& Folder, bool bWithSubDirs)
+void CSandMan::EnumBoxLinks(QMap<QString, QMap<QString,SBoxLink> > &BoxLinks, const QString& Prefix, const QString& Folder, bool bWithSubDirs)
 {
 	QRegularExpression exp("/\\[[0-9Sa-zA-Z_]+\\] ");
 
@@ -1549,8 +1574,20 @@ void CSandMan::EnumBoxLinks(QMap<QString, QMap<QString,QString> > &BoxLinks, con
 
 		int pos = result.capturedStart() + 1;
 		int len = result.capturedLength() - 1;
-		QString BoxName = File.mid(pos + 1, len - 3).toLower();
-		BoxLinks[BoxName].insert((Prefix + "/" + QString(File).remove(pos, len)).toLower(), Folder + "/" + File);
+		QString BoxName = File.mid(pos + 1, len - 3);
+
+		SBoxLink BoxLink;
+		BoxLink.RelPath = (Prefix + "/" + QString(File).remove(pos, len));
+		BoxLink.FullPath = Folder + "/" + File;
+
+		QVariantMap Link = ResolveShortcut(BoxLink.FullPath);
+		BoxLink.Target = Link["Arguments"].toString().trimmed();
+		if (BoxLink.Target.left(4) == "/box") {
+			if(int pos = BoxLink.Target.indexOf(" ") + 1)
+				BoxLink.Target = BoxLink.Target.mid(pos).trimmed();
+		}
+
+		BoxLinks[BoxName.toLower()].insert(BoxLink.RelPath.toLower(), BoxLink);
 	}
 }
 
@@ -1576,24 +1613,33 @@ void CSandMan::DeleteShortcut(const QString& Path)
 	CleanupShortcutPath(Path);
 }
 
-void CSandMan::CleanUpStartMenu(QMap<QString, QMap<QString, QString> >& BoxLinks)
+void CSandMan::CleanUpStartMenu(QMap<QString, QMap<QString, SBoxLink> >& BoxLinks)
 {
 	for (auto I = BoxLinks.begin(); I != BoxLinks.end(); ++I) {
 		for (auto J = I->begin(); J != I->end(); ++J) {
 			//qDebug() << "Delete Shortcut" << J.value();
 			OnLogMessage(tr("Removed Shortcut: %1").arg(J.key()));
-			DeleteShortcut(J.value());
+			DeleteShortcut(J->FullPath);
 		}
 	}
 }
 
 void CSandMan::ClearStartMenu()
 {
-	QMap<QString, QMap<QString, QString> > BoxLinks;
+	QMap<QString, QMap<QString, SBoxLink> > BoxLinks;
 	EnumBoxLinks(BoxLinks, "Programs", QStandardPaths::writableLocation(QStandardPaths::ApplicationsLocation));
 	EnumBoxLinks(BoxLinks, "Desktop", QStandardPaths::writableLocation(QStandardPaths::DesktopLocation), false);
 
 	CleanUpStartMenu(BoxLinks);
+}
+
+bool CSandMan__MatchLinkTarget(QString L, QString R)
+{
+	if (L == R)
+		return true;
+	if (L.left(1) == "\"" &&  L == "\"" + R + "\"")
+		return true;
+	return false;
 }
 
 void CSandMan::SyncStartMenu()
@@ -1604,7 +1650,7 @@ void CSandMan::SyncStartMenu()
 	if (Mode == 0)
 		return;
 
-	QMap<QString, QMap<QString, QString> > BoxLinks;
+	QMap<QString, QMap<QString, SBoxLink> > BoxLinks;
 	EnumBoxLinks(BoxLinks, "Programs", QStandardPaths::writableLocation(QStandardPaths::ApplicationsLocation));
 	EnumBoxLinks(BoxLinks, "Desktop", QStandardPaths::writableLocation(QStandardPaths::DesktopLocation), false);
 
@@ -1613,7 +1659,7 @@ void CSandMan::SyncStartMenu()
 	{
 		CSandBoxPlus* pBoxEx = (CSandBoxPlus*)pBox.data();
 
-		QMap<QString, QString>& CurLinks = BoxLinks[pBoxEx->GetName().toLower()];
+		QMap<QString, SBoxLink>& CurLinks = BoxLinks[pBoxEx->GetName().toLower()];
 
 		foreach(const CSandBoxPlus::SLink & Link, pBoxEx->GetStartMenu())
 		{
@@ -1646,10 +1692,14 @@ void CSandMan::SyncStartMenu()
 			}
 
 			QString Key = QString(Prefix + Link.Folder + "\\" + Link.Name + ".lnk").replace("\\", "/").toLower();
-			QString Path = CurLinks.take(Key);
-			if (Path.isEmpty()) {
+			SBoxLink BoxLink = CurLinks.take(Key);
+			if (BoxLink.FullPath.isEmpty() || !CSandMan__MatchLinkTarget(BoxLink.Target, Link.Target)) {
 				//qDebug() << "CreateShortcut" << Location + Link.Name;
-				OnLogMessage(tr("Added Shortcut to: %1").arg(Key));
+				if (!BoxLink.FullPath.isEmpty()) {
+					QFile::remove(BoxLink.FullPath);
+					OnLogMessage(tr("Updated Shortcut to: %1").arg(Key));
+				} else
+					OnLogMessage(tr("Added Shortcut to: %1").arg(Key));
 				QDir().mkpath(Folder);
 				CSbieUtils::CreateShortcut(theAPI, Location + Link.Name,
 						Link.Name, pBoxEx->GetName(), Link.Target, Link.Icon.isEmpty() ? Link.Target : Link.Icon, Link.IconIndex);
@@ -1671,24 +1721,39 @@ void CSandMan::OnStartMenuChanged()
 
 void CSandMan::OnBoxClosed(const CSandBoxPtr& pBox)
 {
-	if (!pBox->GetBool("NeverDelete", false) && pBox->GetBool("AutoDelete", false) && !pBox->IsEmpty())
+	if (!pBox->GetBool("NeverDelete", false))
 	{
-		bool DeleteShapshots = false;
-		// if this box auto deletes first show the recovry dialog with the option to abort deletion
-		if(!theGUI->OpenRecovery(pBox, DeleteShapshots, true)) // unless no files are found than continue silently
-			return;
-
-		if(theConf->GetBool("Options/AutoBoxOpsNotify", false))
-			OnLogMessage(tr("Auto deleting content of %1").arg(pBox->GetName()), true);
-
-		if (theConf->GetBool("Options/UseAsyncBoxOps", false) || IsSilentMode())
+		if (pBox->GetBool("AutoDelete", false))
 		{
-			auto pBoxEx = pBox.objectCast<CSandBoxPlus>();
-			SB_STATUS Status = pBoxEx->DeleteContentAsync(DeleteShapshots);
-			CheckResults(QList<SB_STATUS>() << Status);
+			bool DeleteShapshots = false;
+			// if this box auto deletes first show the recovry dialog with the option to abort deletion
+			if (!theGUI->OpenRecovery(pBox, DeleteShapshots, true)) // unless no files are found than continue silently
+				return;
+
+			if (theConf->GetBool("Options/AutoBoxOpsNotify", false))
+				OnLogMessage(tr("Auto deleting content of %1").arg(pBox->GetName()), true);
+
+			if (theConf->GetBool("Options/UseAsyncBoxOps", false) || IsSilentMode())
+			{
+				auto pBoxEx = pBox.objectCast<CSandBoxPlus>();
+				SB_STATUS Status = pBoxEx->DeleteContentAsync(DeleteShapshots);
+				CheckResults(QList<SB_STATUS>() << Status);
+			}
+			else
+				DeleteBoxContent(pBox, eAuto, DeleteShapshots);
 		}
-		else
-			DeleteBoxContent(pBox, eAuto, DeleteShapshots);
+	}
+}
+
+void CSandMan::OnBoxCleaned(CSandBoxPlus* pBoxEx)
+{
+	if (pBoxEx->GetBool("AutoRemove", false)) 
+	{
+		if (theConf->GetBool("Options/AutoBoxOpsNotify", false))
+			OnLogMessage(tr("Auto removing sandbox %1").arg(pBoxEx->GetName()), true);
+
+		pBoxEx->RemoveBox();
+		return;
 	}
 }
 
@@ -1855,7 +1920,7 @@ void CSandMan::UpdateState()
 {
 	bool isConnected = theAPI->IsConnected();
 
-	m_pSupport->setVisible(g_Certificate.isEmpty());
+	//m_pSupport->setVisible(g_Certificate.isEmpty());
 
 	m_pTrayIcon->setIcon(GetTrayIcon(isConnected));
 	m_pTrayIcon->setToolTip(GetTrayText(isConnected));
@@ -1876,6 +1941,7 @@ void CSandMan::UpdateState()
 	//m_pKeepTerminated->setEnabled(isConnected);
 
 	m_pEditIni->setEnabled(isConnected);
+	if(m_pEditIni2) m_pEditIni2->setEnabled(isConnected);
 	m_pReloadIni->setEnabled(isConnected);
 	if(m_pEnableMonitoring) m_pEnableMonitoring->setEnabled(isConnected);
 }
@@ -2646,26 +2712,29 @@ void CSandMan::OnResetMsgs()
 
 	if (Ret == QMessageBox::Yes)
 	{
-		theConf->SetValue("Options/PortableStop", -1);
-		theConf->SetValue("Options/PortableStart", -1);
-		theConf->SetValue("Options/PortableRootDir", -1);
+		theConf->DelValue("Options/WarnDeleteV2");
 
-		theConf->SetValue("Options/CheckForUpdates", 2);
+		theConf->DelValue("Options/PortableStop");
+		theConf->DelValue("Options/PortableStart");
+		theConf->DelValue("Options/PortableRootDir");
 
-		theConf->SetValue("Options/NoEditInfo", true);
+		theConf->DelValue("Options/CheckForUpdates");
 
-		theConf->SetValue("Options/BoxedExplorerInfo", true);
-		theConf->SetValue("Options/ExplorerInfo", true);
+		theConf->DelValue("Options/NoEditInfo");
+		theConf->DelValue("Options/NoEditWarn");
 
-		theConf->SetValue("Options/OpenUrlsSandboxed", 2);
+		theConf->DelValue("Options/BoxedExplorerInfo");
+		theConf->DelValue("Options/ExplorerInfo");
 
-		theConf->SetValue("Options/AutoCleanupTemplates", -1);
-		theConf->SetValue("Options/WarnTerminateAll", -1);
-		theConf->SetValue("Options/WarnTerminate", -1);
+		theConf->DelValue("Options/OpenUrlsSandboxed");
 
-		theConf->SetValue("Options/InfoMkLink", -1);
+		theConf->DelValue("Options/AutoCleanupTemplates");
+		theConf->DelValue("Options/WarnTerminateAll");
+		theConf->DelValue("Options/WarnTerminate");
 
-		theConf->SetValue("Options/WarnOpenCOM", -1);
+		theConf->DelValue("Options/InfoMkLink");
+
+		theConf->DelValue("Options/WarnOpenCOM");
 	}
 
 	theAPI->GetUserSettings()->UpdateTextList("SbieCtrl_HideMessage", QStringList(), true);
@@ -2704,27 +2773,53 @@ void CSandMan::OnResetGUI()
 
 void CSandMan::OnEditIni()
 {
-	if (theConf->GetBool("Options/NoEditInfo", true))
-	{
-		bool State = false;
-		CCheckableMessageBox::question(this, "Sandboxie-Plus", 
-			theConf->GetBool("Options/WatchIni", true)
-			? tr("The changes will be applied automatically whenever the file gets saved.")
-			: tr("The changes will be applied automatically as soon as the editor is closed.")
-			, tr("Don't show this message again."), &State, QDialogButtonBox::Ok, QDialogButtonBox::Ok, QMessageBox::Information);
-
-		if (State)
-			theConf->SetValue("Options/NoEditInfo", false);
-	}
+	QString ini = ((QAction*)sender())->property("ini").toString();
 
 	std::wstring Editor = theConf->GetString("Options/Editor", "notepad.exe").toStdWString();
-	std::wstring IniPath = theAPI->GetIniPath().toStdWString();
+	std::wstring IniPath;
+
+	bool bPlus;
+	if (bPlus = (ini == "plus"))
+	{
+		IniPath = QString(theConf->GetConfigDir() + "/Sandboxie-Plus.ini").replace("/", "\\").toStdWString();
+	}
+	else if (ini == "tmpl")
+	{
+		IniPath = (theAPI->GetSbiePath() + "\\Templates.ini").toStdWString();
+
+		if (theConf->GetBool("Options/NoEditWarn", true)) {
+			bool State = false;
+			CCheckableMessageBox::question(this, "Sandboxie-Plus",
+				tr("You are about to edit the Templates.ini, this is generally not recommended.\n"
+					"This file is part of Sandboxie and all change done to it will be reverted next time Sandboxie is updated.")
+				, tr("Don't show this message again."), &State, QDialogButtonBox::Ok, QDialogButtonBox::Ok, QMessageBox::Warning);
+
+			if (State)
+				theConf->SetValue("Options/NoEditWarn", false);
+		}
+	}
+	else //if (ini == "sbie")
+	{
+		IniPath = theAPI->GetIniPath().toStdWString();
+
+		if (theConf->GetBool("Options/NoEditInfo", true)) {
+			bool State = false;
+			CCheckableMessageBox::question(this, "Sandboxie-Plus",
+				theConf->GetBool("Options/WatchIni", true)
+				? tr("The changes will be applied automatically whenever the file gets saved.")
+				: tr("The changes will be applied automatically as soon as the editor is closed.")
+				, tr("Don't show this message again."), &State, QDialogButtonBox::Ok, QDialogButtonBox::Ok, QMessageBox::Information);
+
+			if (State)
+				theConf->SetValue("Options/NoEditInfo", false);
+		}
+	}
 
 	SHELLEXECUTEINFO si = { 0 };
 	si.cbSize = sizeof(SHELLEXECUTEINFO);
 	si.fMask = SEE_MASK_NOCLOSEPROCESS;
 	si.hwnd = NULL;
-	si.lpVerb = L"runas";
+	si.lpVerb = bPlus ? NULL : L"runas"; // plus ini does nto require admin privileges
 	si.lpFile = Editor.c_str();
 	si.lpParameters = IniPath.c_str();
 	si.lpDirectory = NULL;
@@ -2734,15 +2829,18 @@ void CSandMan::OnEditIni()
 	//WaitForSingleObject(si.hProcess, INFINITE);
 	//CloseHandle(si.hProcess);
 
-	if (theConf->GetBool("Options/WatchIni", true))
+	if (!bPlus && theConf->GetBool("Options/WatchIni", true))
 		return; // if the ini is watched don't double reload
 	
 	QWinEventNotifier* processFinishedNotifier = new QWinEventNotifier(si.hProcess);
 	processFinishedNotifier->setEnabled(true);
-	connect(processFinishedNotifier, &QWinEventNotifier::activated, this, [processFinishedNotifier, this, si]() {
+	connect(processFinishedNotifier, &QWinEventNotifier::activated, this, [processFinishedNotifier, this, si, bPlus]() {
 		processFinishedNotifier->setEnabled(false);
 		processFinishedNotifier->deleteLater();
-		this->OnReloadIni();
+		if (bPlus)
+			theConf->Sync();
+		else
+			this->OnReloadIni();
 		CloseHandle(si.hProcess);
 	});
 }
@@ -3132,9 +3230,10 @@ void CSandMan::LoadLanguage(const QString& Lang, const QString& Module, int Inde
 
 void CSandMan::OnHelp()
 {
-	if (sender() == m_pSupport)
-		QDesktopServices::openUrl(QUrl("https://sandboxie-plus.com/go.php?to=donate"));
-	else if (sender() == m_pContribution)
+	//if (sender() == m_pSupport)
+	//	QDesktopServices::openUrl(QUrl("https://sandboxie-plus.com/go.php?to=donate"));
+	//else 
+	if (sender() == m_pContribution)
 		QDesktopServices::openUrl(QUrl("https://sandboxie-plus.com/go.php?to=sbie-contribute"));
 	else if (sender() == m_pManual)
 		QDesktopServices::openUrl(QUrl("https://sandboxie-plus.com/go.php?to=sbie-docs"));
@@ -3151,7 +3250,7 @@ void CSandMan::OnAbout()
 		QString AboutCaption = tr(
 			"<h3>About Sandboxie-Plus</h3>"
 			"<p>Version %1</p>"
-			"<p>Copyright (c) 2020-2022 by DavidXanatos</p>"
+			"<p>Copyright (c) 2020-2023 by DavidXanatos</p>"
 		).arg(theGUI->GetVersion());
 
 		QString CertInfo;

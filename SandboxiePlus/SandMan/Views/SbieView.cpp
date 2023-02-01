@@ -13,6 +13,7 @@
 #include "../Windows/NewBoxWindow.h"
 #include "../Views/FileView.h"
 #include "../Wizards/NewBoxWizard.h"
+#include "../Helpers/WinHelper.h"
 
 #include "qt_windows.h"
 #include "qwindowdefs_win.h"
@@ -959,7 +960,7 @@ bool CSbieView::MoveItem(const QString& Name, const QString& To, int pos)
 	return From != To;
 }
 
-QString CSbieView::AddNewBox()
+QString CSbieView::AddNewBox(bool bAlowTemp)
 {
 	QString BoxName;
 
@@ -971,7 +972,7 @@ QString CSbieView::AddNewBox()
 			BoxName = NewBoxWindow.m_Name;
 	}
 	else
-		BoxName = CNewBoxWizard::CreateNewBox(this);
+		BoxName = CNewBoxWizard::CreateNewBox(bAlowTemp, this);
 
 	if (!BoxName.isEmpty()) {
 		theAPI->ReloadBoxes();
@@ -1453,7 +1454,7 @@ void CSbieView::OnProcessAction(QAction* Action, const QList<CBoxedProcessPtr>& 
 				return;
 
 			bool State = false;
-			if(CCheckableMessageBox::question(this, "Sandboxie-Plus", tr("Do you want to %1 %2?").arg(((QAction*)sender())->text().toLower()).arg(Processes.count() == 1 ? Processes[0]->GetProcessName() : tr("the selected processes"))
+			if(CCheckableMessageBox::question(this, "Sandboxie-Plus", tr("Do you want to terminate %1?").arg(Processes.count() == 1 ? Processes[0]->GetProcessName() : tr("the selected processes"))
 				, tr("Terminate without asking"), &State, QDialogButtonBox::Yes | QDialogButtonBox::No, QDialogButtonBox::Yes) != QDialogButtonBox::Yes)
 				return;
 
@@ -1712,7 +1713,9 @@ void CSbieView::UpdateStartMenu(CSandBoxPlus* pBoxEx)
 		QMenu* pMenu = GetMenuFolder(Link.Folder, m_pMenuRunStart);
 
 		QAction* pAction = pMenu->addAction(Link.Name, this, SLOT(OnSandBoxAction()));
-		pAction->setIcon(m_IconProvider.icon(QFileInfo(Link.Target)));
+		QIcon Icon = LoadWindowsIcon(Link.Icon, Link.IconIndex);
+		if(Icon.isNull()) Icon = m_IconProvider.icon(QFileInfo(Link.Target));
+		pAction->setIcon(Icon);
 		pAction->setData(Link.Target);
 	}
 }

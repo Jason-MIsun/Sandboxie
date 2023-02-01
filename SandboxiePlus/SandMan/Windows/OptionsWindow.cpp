@@ -232,7 +232,7 @@ COptionsWindow::COptionsWindow(const QSharedPointer<CSbieIni>& pBox, const QStri
 	int iViewMode = theConf->GetInt("Options/ViewMode", 1);
 	int iOptionLayout = theConf->GetInt("Options/NewConfigLayout", 2);
 	if (iOptionLayout == 2)
-		iOptionLayout = 0; // iViewMode == 1 ? 1 : 0;
+		iOptionLayout = iViewMode != 2 ? 1 : 0;
 
 	if ((QGuiApplication::queryKeyboardModifiers() & Qt::AltModifier) != 0)
 		iOptionLayout = !iOptionLayout;
@@ -272,9 +272,25 @@ COptionsWindow::COptionsWindow(const QSharedPointer<CSbieIni>& pBox, const QStri
 		delete ui.tabsRecovery;
 		ui.gridLayout_24->setContentsMargins(0, 0, 0, 0);
 
+		QWidget* pWidget = new QWidget();
+		QGridLayout* pLayout = new QGridLayout(pWidget);
+
 		// move recovery to general
-		ui.tabsGeneral->insertTab(2, ui.tabs->widget(6), ui.tabs->tabText(6));
-		ui.tabsGeneral->setTabIcon(2, CSandMan::GetIcon("Recover"));
+		//ui.tabsGeneral->insertTab(2, ui.tabs->widget(6), ui.tabs->tabText(6));
+		//ui.tabsGeneral->setTabIcon(2, CSandMan::GetIcon("Recover"));
+
+		// collect file options on a new fils tab
+		QTabWidget* pTabWidget = new QTabWidget();
+		pLayout->addWidget(pTabWidget, 0, 0);
+		ui.tabs->insertTab(1, pWidget, tr("File Options"));
+		ui.tabs->setTabIcon(1, CSandMan::GetIcon("Folder"));
+
+		pTabWidget->addTab(ui.tabsGeneral->widget(1), ui.tabsGeneral->tabText(1));
+		pTabWidget->setTabIcon(0, CSandMan::GetIcon("Files"));
+		pTabWidget->addTab(ui.tabsGeneral->widget(1), ui.tabsGeneral->tabText(1));
+		pTabWidget->setTabIcon(1, CSandMan::GetIcon("Move"));
+		pTabWidget->addTab(ui.tabs->widget(7), ui.tabs->tabText(7));
+		pTabWidget->setTabIcon(2, CSandMan::GetIcon("Recover"));
 
 		// move grouping to program tab
 		ui.tabsForce->insertTab(0, ui.tabGroups, tr("Grouping"));
