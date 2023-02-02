@@ -908,8 +908,10 @@ void CSandMan::CreateView(int iViewMode)
 	connect(m_pBoxView, SIGNAL(BoxSelected()), this, SLOT(OnBoxSelected()));
 	m_pFileView = new CFileView();
 
-	if (iViewMode != 1)
+	if (iViewMode != 1) {
 		m_pRecoveryLogWnd = new CRecoveryLogWnd(m_pMainWidget);
+		connect(this, SIGNAL(Closed()), m_pRecoveryLogWnd, SLOT(close()));
+	}
 	else
 		m_pRecoveryLogWnd = NULL;
 
@@ -1067,6 +1069,8 @@ void CSandMan::closeEvent(QCloseEvent *e)
 			}
 		}
 	}
+
+	emit Closed();
 
 	//if(theAPI->IsConnected())
 	//	m_pBoxView->SaveUserConfig();
@@ -1354,6 +1358,7 @@ bool CSandMan::RunSandboxed(const QStringList& Commands, QString BoxName, const 
 	if (BoxName.isEmpty())
 		BoxName = theAPI->GetGlobalSettings()->GetText("DefaultBox", "DefaultBox");
 	CSelectBoxWindow* pSelectBoxWindow = new CSelectBoxWindow(Commands, BoxName, WrkDir);
+	connect(this, SIGNAL(Closed()), pSelectBoxWindow, SLOT(close()));
 	//pSelectBoxWindow->show();
 	return SafeExec(pSelectBoxWindow) == 1;
 }
@@ -1366,7 +1371,7 @@ void CSandMan::dropEvent(QDropEvent* e)
 			Commands.append(url.toLocalFile().replace("/", "\\"));
 	}
 
-	RunSandboxed(Commands);
+	QTimer::singleShot(0, this, [Commands, this]() { RunSandboxed(Commands); });
 }
 
 void CSandMan::timerEvent(QTimerEvent* pEvent)
@@ -2614,6 +2619,7 @@ void CSandMan::OnSettings()
 	static CSettingsWindow* pSettingsWindow = NULL;
 	if (pSettingsWindow == NULL) {
 		pSettingsWindow = new CSettingsWindow();
+		connect(this, SIGNAL(Closed()), pSettingsWindow, SLOT(close()));
 		connect(pSettingsWindow, SIGNAL(OptionsChanged(bool)), this, SLOT(UpdateSettings(bool)));
 		connect(pSettingsWindow, &CSettingsWindow::Closed, [this]() {
 			pSettingsWindow = NULL;
@@ -2781,11 +2787,11 @@ void CSandMan::OnEditIni()
 	bool bPlus;
 	if (bPlus = (ini == "plus"))
 	{
-		IniPath = QString(theConf->GetConfigDir() + "/Sandboxie-Plus.ini").replace("/", "\\").toStdWString();
+		IniPath = L"\"" + QString(theConf->GetConfigDir() + "/Sandboxie-Plus.ini").replace("/", "\\").toStdWString() + L"\"";
 	}
 	else if (ini == "tmpl")
 	{
-		IniPath = (theAPI->GetSbiePath() + "\\Templates.ini").toStdWString();
+		IniPath = L"\"" + (theAPI->GetSbiePath() + "\\Templates.ini").toStdWString() + L"\"";
 
 		if (theConf->GetBool("Options/NoEditWarn", true)) {
 			bool State = false;
@@ -2800,7 +2806,7 @@ void CSandMan::OnEditIni()
 	}
 	else //if (ini == "sbie")
 	{
-		IniPath = theAPI->GetIniPath().toStdWString();
+		IniPath = L"\"" + theAPI->GetIniPath().toStdWString() + L"\"";
 
 		if (theConf->GetBool("Options/NoEditInfo", true)) {
 			bool State = false;
@@ -2876,6 +2882,7 @@ void CSandMan::OnMonitoring()
 		static CTraceWindow* pTraceWindow = NULL;
 		if (!pTraceWindow) {
 			pTraceWindow = new CTraceWindow();
+			connect(this, SIGNAL(Closed()), pTraceWindow, SLOT(close()));
 			//pTraceWindow->setAttribute(Qt::WA_DeleteOnClose);
 			connect(pTraceWindow, &CTraceWindow::Closed, [&]() {
 				pTraceWindow = NULL;
