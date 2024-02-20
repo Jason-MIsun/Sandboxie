@@ -506,9 +506,7 @@ _FX NTSTATUS MyValidateCertificate(void)
     if(!*g_uuid_str)
         InitFwUuid();
 
-        status = STATUS_SUCCESS;
-
-    return status;
+    return STATUS_SUCCESS;
 }
 
 
